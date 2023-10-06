@@ -1,15 +1,8 @@
-use std::collections::{HashMap, VecDeque};
+use crate::reader::JsonReader;
+use crate::value::Number;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::iter::Peekable;
-use std::slice::Iter;
-use std::str::from_utf8;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Number {
-    I64(i64),
-    F64(f64),
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
@@ -26,63 +19,12 @@ pub enum Token {
     Null,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Value {
-    String(String),
-    Number(Number),
-    Boolean(bool),
-    Array(Vec<Value>),
-    Object(HashMap<String, Value>),
-    Null,
-}
-
-struct JsonReader {
-    reader: Box<BufReader<dyn Read>>,
-    character_buffer: VecDeque<char>,
-}
-
-impl JsonReader {
-    fn new(reader: BufReader<File>) -> Self {
-        JsonReader {
-            reader: Box::new(reader),
-            character_buffer: VecDeque::with_capacity(4),
-        }
-    }
-
-    fn from_string(reader: BufReader<&'static [u8]>) -> Self {
-        JsonReader {
-            reader: Box::new(reader),
-            character_buffer: VecDeque::with_capacity(4),
-        }
-    }
-}
-
-impl Iterator for JsonReader {
-    type Item = char;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.character_buffer.is_empty() {
-            return self.character_buffer.pop_front();
-        }
-
-        let mut utf8_buffer = [0, 0, 0, 0];
-        let _ = self.reader.read(&mut utf8_buffer);
-
-        if let Ok(string) = from_utf8(&utf8_buffer) {
-            self.character_buffer = string.chars().collect();
-            self.character_buffer.pop_front()
-        } else {
-            None
-        }
-    }
-}
-
-pub struct JsonParser {
+pub struct JsonTokenizer {
     tokens: Vec<Token>,
     iterator: Peekable<JsonReader>,
 }
 
-impl JsonParser {
+impl JsonTokenizer {
     pub fn new(reader: File) -> Self {
         let json_reader = JsonReader::new(BufReader::new(reader));
 
@@ -92,8 +34,8 @@ impl JsonParser {
         }
     }
 
-    fn from_string(input: &'static str) -> Self {
-        let json_reader = JsonReader::from_string(BufReader::new(input.as_bytes()));
+    pub fn from_bytes(input: &'static [u8]) -> Self {
+        let json_reader = JsonReader::from_bytes(BufReader::new(input));
 
         Self {
             iterator: json_reader.peekable(),
@@ -158,125 +100,7 @@ impl JsonParser {
         }
     }
 
-    fn parse_object(&self, iterator: &mut Peekable<Iter<Token>>) -> HashMap<String, Value> {
-        let mut is_key = true;
-        let mut current_key: Option<&str> = None;
-        let mut value = HashMap::<String, Value>::new();
-
-        while let Some(token) = iterator.next() {
-            match token {
-                Token::CurlyOpen => {
-                    if let Some(current_key) = current_key {
-                        value.insert(
-                            current_key.to_string(),
-                            Value::Object(self.parse_object(iterator)),
-                        );
-                    }
-                }
-                Token::CurlyClose => {
-                    break;
-                }
-                Token::Quotes => {}
-                Token::Colon => {
-                    is_key = false;
-                }
-                Token::String(string) => {
-                    if is_key {
-                        current_key = Some(string);
-                    } else if let Some(key) = current_key {
-                        value.insert(key.to_string(), Value::String(string.clone()));
-                        current_key = None;
-                    }
-                }
-                Token::Number(number) => {
-                    if let Some(key) = current_key {
-                        value.insert(key.to_string(), Value::Number(*number));
-                        current_key = None;
-                    }
-                }
-                Token::ArrayOpen => {
-                    if let Some(key) = current_key {
-                        value.insert(key.to_string(), Value::Array(self.parse_array(iterator)));
-                        current_key = None;
-                    }
-                }
-                Token::ArrayClose => {}
-                Token::Comma => is_key = true,
-                Token::Boolean(boolean) => {
-                    if let Some(key) = current_key {
-                        value.insert(key.to_string(), Value::Boolean(*boolean));
-                        current_key = None;
-                    }
-                }
-                Token::Null => {
-                    if let Some(key) = current_key {
-                        value.insert(key.to_string(), Value::Null);
-                        current_key = None;
-                    }
-                }
-            }
-        }
-
-        value
-    }
-
-    fn parse_array(&self, iterator: &mut Peekable<Iter<Token>>) -> Vec<Value> {
-        let mut internal_value = Vec::<Value>::new();
-
-        while let Some(token) = iterator.next() {
-            match token {
-                Token::CurlyOpen => internal_value.push(Value::Object(self.parse_object(iterator))),
-                Token::CurlyClose => {}
-                Token::Quotes => {}
-                Token::Colon => {}
-                Token::String(string) => internal_value.push(Value::String(string.clone())),
-                Token::Number(number) => internal_value.push(Value::Number(*number)),
-                Token::ArrayOpen => internal_value.push(Value::Array(self.parse_array(iterator))),
-                Token::ArrayClose => {
-                    break;
-                }
-                Token::Comma => {}
-                Token::Boolean(boolean) => internal_value.push(Value::Boolean(*boolean)),
-                Token::Null => internal_value.push(Value::Null),
-            }
-        }
-
-        internal_value
-    }
-
-    fn tokens_to_value(&self, tokens: &[Token]) -> Value {
-        let mut iterator = tokens.iter().peekable();
-
-        let mut value = Value::Null;
-
-        while let Some(token) = iterator.next() {
-            match token {
-                Token::CurlyOpen => {
-                    value = Value::Object(self.parse_object(&mut iterator));
-                }
-                Token::CurlyClose => {}
-                Token::Quotes => {}
-                Token::Colon => {}
-                Token::String(string) => {
-                    value = Value::String(string.clone());
-                }
-                Token::Number(number) => {
-                    value = Value::Number(*number);
-                }
-                Token::ArrayOpen => {
-                    value = Value::Array(self.parse_array(&mut iterator));
-                }
-                Token::ArrayClose => {}
-                Token::Comma => {}
-                Token::Boolean(boolean) => value = Value::Boolean(*boolean),
-                Token::Null => value = Value::Null,
-            }
-        }
-
-        value
-    }
-
-    pub fn parse_json(&mut self) -> Result<Value, ()> {
+    pub fn tokenize_json(&mut self) -> Result<&[Token], ()> {
         while let Some(character) = self.iterator.peek() {
             match *character {
                 '"' => {
@@ -357,14 +181,16 @@ impl JsonParser {
             }
         }
 
-        Ok(self.tokens_to_value(&self.tokens))
+        Ok(&self.tokens)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::tokens::Number::F64;
+    use crate::parser::JsonParser;
+    use crate::value::Number::F64;
+    use std::collections::HashMap;
 
     #[test]
     fn test_tokenizer() {
@@ -434,18 +260,16 @@ mod test {
             CurlyClose,
         ];
 
-        let mut json_parser = JsonParser::from_string(input);
-
-        assert!(json_parser.parse_json().is_ok());
-        assert_eq!(expected_tokens.to_vec(), json_parser.tokens);
+        let mut tokens = JsonTokenizer::from_string(input).tokenize_json().unwrap();
+        assert_eq!(expected_tokens.to_vec(), tokens);
     }
 
     #[test]
     fn parsed_json() {
-        use Value::*;
+        use crate::value::Value::*;
 
         let input = r#"{"pairs":[{"x0":95.26235434764715,"y0":-33.78221816487377,"x1":41.844453001935875,"y1":-78.10213222087448},{"x0":115.42029308864215,"y0":87.52060937339934,"x1":83.39640643072113,"y1":28.643090267505812},{"sample":"string sample","nullable":null}]}"#;
-        let mut json_parser = JsonParser::from_string(input);
+        let mut json_parser = JsonParser::parse_from_string(input);
 
         let mut entry1 = HashMap::new();
         entry1.insert("y0".to_string(), Number(F64(-33.78221816487377)));
