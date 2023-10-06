@@ -22,7 +22,7 @@ pub enum Token {
     ArrayOpen,
     ArrayClose,
     Comma,
-    Boolean,
+    Boolean(bool),
     Null,
 }
 
@@ -202,8 +202,18 @@ impl JsonParser {
                 }
                 Token::ArrayClose => {}
                 Token::Comma => is_key = true,
-                Token::Boolean => {}
-                Token::Null => {}
+                Token::Boolean(boolean) => {
+                    if let Some(key) = current_key {
+                        value.insert(key.to_string(), Value::Boolean(*boolean));
+                        current_key = None;
+                    }
+                }
+                Token::Null => {
+                    if let Some(key) = current_key {
+                        value.insert(key.to_string(), Value::Null);
+                        current_key = None;
+                    }
+                }
             }
         }
 
@@ -226,8 +236,8 @@ impl JsonParser {
                     break;
                 }
                 Token::Comma => {}
-                Token::Boolean => {}
-                Token::Null => {}
+                Token::Boolean(boolean) => internal_value.push(Value::Boolean(*boolean)),
+                Token::Null => internal_value.push(Value::Null),
             }
         }
 
@@ -258,8 +268,8 @@ impl JsonParser {
                 }
                 Token::ArrayClose => {}
                 Token::Comma => {}
-                Token::Boolean => {}
-                Token::Null => {}
+                Token::Boolean(boolean) => value = Value::Boolean(*boolean),
+                Token::Null => value = Value::Null,
             }
         }
 
@@ -309,6 +319,34 @@ impl JsonParser {
                     self.tokens.push(Token::Number(number));
                 }
                 '\0' => break,
+                'n' => {
+                    self.tokens.push(Token::Null);
+
+                    // Advance iterator by 4 for null character
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                }
+                't' => {
+                    self.tokens.push(Token::Boolean(true));
+
+                    // Advance iterator by 4 for true keyword
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                }
+                'f' => {
+                    self.tokens.push(Token::Boolean(false));
+
+                    // Advance iterator by 5 for false character
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                    let _ = self.iterator.next();
+                }
                 character => {
                     if character.is_ascii_whitespace() {
                         continue;
@@ -406,7 +444,7 @@ mod test {
     fn parsed_json() {
         use Value::*;
 
-        let input = r#"{"pairs":[{"x0":95.26235434764715,"y0":-33.78221816487377,"x1":41.844453001935875,"y1":-78.10213222087448},{"x0":115.42029308864215,"y0":87.52060937339934,"x1":83.39640643072113,"y1":28.643090267505812}]}"#;
+        let input = r#"{"pairs":[{"x0":95.26235434764715,"y0":-33.78221816487377,"x1":41.844453001935875,"y1":-78.10213222087448},{"x0":115.42029308864215,"y0":87.52060937339934,"x1":83.39640643072113,"y1":28.643090267505812},{"sample":"string sample","nullable":null}]}"#;
         let mut json_parser = JsonParser::from_string(input);
 
         let mut entry1 = HashMap::new();
@@ -421,10 +459,14 @@ mod test {
         entry2.insert("x1".to_string(), Number(F64(83.39640643072113)));
         entry2.insert("y1".to_string(), Number(F64(28.643090267505812)));
 
+        let mut entry3 = HashMap::new();
+        entry3.insert("sample".to_string(), String("string sample".to_string()));
+        entry3.insert("nullable".to_string(), Null);
+
         let mut pairs = HashMap::new();
         pairs.insert(
             "pairs".to_string(),
-            Array(vec![Object(entry1), Object(entry2)]),
+            Array(vec![Object(entry1), Object(entry2), Object(entry3)]),
         );
 
         assert_eq!(json_parser.parse_json().unwrap(), Object(pairs));
