@@ -26,7 +26,7 @@ pub enum Token {
     Null,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Value {
     String(String),
     Number(Number),
@@ -399,6 +399,34 @@ mod test {
         let mut json_parser = JsonParser::from_string(input);
 
         assert!(json_parser.parse_json().is_ok());
-        assert_eq!(expected_tokens.to_vec(), json_parser.tokens)
+        assert_eq!(expected_tokens.to_vec(), json_parser.tokens);
+    }
+
+    #[test]
+    fn parsed_json() {
+        use Value::*;
+
+        let input = r#"{"pairs":[{"x0":95.26235434764715,"y0":-33.78221816487377,"x1":41.844453001935875,"y1":-78.10213222087448},{"x0":115.42029308864215,"y0":87.52060937339934,"x1":83.39640643072113,"y1":28.643090267505812}]}"#;
+        let mut json_parser = JsonParser::from_string(input);
+
+        let mut entry1 = HashMap::new();
+        entry1.insert("y0".to_string(), Number(F64(-33.78221816487377)));
+        entry1.insert("x0".to_string(), Number(F64(95.26235434764715)));
+        entry1.insert("y1".to_string(), Number(F64(-78.10213222087448)));
+        entry1.insert("x1".to_string(), Number(F64(41.844453001935875)));
+
+        let mut entry2 = HashMap::new();
+        entry2.insert("y0".to_string(), Number(F64(87.52060937339934)));
+        entry2.insert("x0".to_string(), Number(F64(115.42029308864215)));
+        entry2.insert("x1".to_string(), Number(F64(83.39640643072113)));
+        entry2.insert("y1".to_string(), Number(F64(28.643090267505812)));
+
+        let mut pairs = HashMap::new();
+        pairs.insert(
+            "pairs".to_string(),
+            Array(vec![Object(entry1), Object(entry2)]),
+        );
+
+        assert_eq!(json_parser.parse_json().unwrap(), Object(pairs));
     }
 }
