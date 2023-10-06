@@ -160,37 +160,45 @@ impl JsonParser {
 
     fn parse_object(&self, iterator: &mut Peekable<Iter<Token>>) -> HashMap<String, Value> {
         let mut is_key = true;
-        let mut current_key = "";
+        let mut current_key: Option<&str> = None;
         let mut value = HashMap::<String, Value>::new();
 
         while let Some(token) = iterator.next() {
             match token {
                 Token::CurlyOpen => {
-                    value.insert(
-                        current_key.to_string(),
-                        Value::Object(self.parse_object(iterator)),
-                    );
+                    if let Some(current_key) = current_key {
+                        value.insert(
+                            current_key.to_string(),
+                            Value::Object(self.parse_object(iterator)),
+                        );
+                    }
                 }
-                Token::CurlyClose => {}
+                Token::CurlyClose => {
+                    break;
+                }
                 Token::Quotes => {}
                 Token::Colon => {
                     is_key = false;
                 }
                 Token::String(string) => {
                     if is_key {
-                        current_key = string;
-                    } else {
-                        value.insert(current_key.to_string(), Value::String(string.clone()));
+                        current_key = Some(string);
+                    } else if let Some(key) = current_key {
+                        value.insert(key.to_string(), Value::String(string.clone()));
+                        current_key = None;
                     }
                 }
                 Token::Number(number) => {
-                    value.insert(current_key.to_string(), Value::Number(*number));
+                    if let Some(key) = current_key {
+                        value.insert(key.to_string(), Value::Number(*number));
+                        current_key = None;
+                    }
                 }
                 Token::ArrayOpen => {
-                    value.insert(
-                        current_key.to_string(),
-                        Value::Array(self.parse_array(iterator)),
-                    );
+                    if let Some(key) = current_key {
+                        value.insert(key.to_string(), Value::Array(self.parse_array(iterator)));
+                        current_key = None;
+                    }
                 }
                 Token::ArrayClose => {}
                 Token::Comma => is_key = true,
@@ -214,7 +222,9 @@ impl JsonParser {
                 Token::String(string) => internal_value.push(Value::String(string.clone())),
                 Token::Number(number) => internal_value.push(Value::Number(*number)),
                 Token::ArrayOpen => internal_value.push(Value::Array(self.parse_array(iterator))),
-                Token::ArrayClose => {}
+                Token::ArrayClose => {
+                    break;
+                }
                 Token::Comma => {}
                 Token::Boolean => {}
                 Token::Null => {}

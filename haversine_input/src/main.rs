@@ -44,7 +44,7 @@ fn main() {
             let mut json_parser = JsonParser::new(File::open("./test.json").unwrap());
             let value = json_parser.parse_json().unwrap();
 
-            println!("{:?}", value);
+            println!("{:#?}", value);
         }
         Method::Cluster { seed, points_count } => {
             let generator = ClusteredHaversinePointsGenerator {};
@@ -61,7 +61,7 @@ fn main() {
             let mut json_parser = JsonParser::new(File::open("./test.json").unwrap());
             let value = json_parser.parse_json().unwrap();
 
-            println!("{:?}", value);
+            println!("{:#?}", value);
         }
     }
 }
