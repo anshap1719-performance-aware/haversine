@@ -35,7 +35,7 @@ impl JsonReader {
     /// use std::io::BufReader;
     /// use json_parser::reader::JsonReader;
     ///
-    /// let file = File::create("dummy.json")?;
+    /// let file = File::create("dummy.json").unwrap();
     /// let reader = BufReader::new(file);
     ///
     /// let json_reader = JsonReader::new(reader);

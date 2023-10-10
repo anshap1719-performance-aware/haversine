@@ -123,12 +123,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "haversine_input"
+name = "haversine-compute"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "clap",
  "json-parser",
+ "serde",
+]
+
+[[package]]
+name = "haversine_input"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "clap",
+ "haversine-compute",
  "rand",
  "serde",
  "serde_json",

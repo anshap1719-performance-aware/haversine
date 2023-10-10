@@ -260,7 +260,9 @@ mod test {
             CurlyClose,
         ];
 
-        let mut tokens = JsonTokenizer::from_string(input).tokenize_json().unwrap();
+        let mut tokenizer = JsonTokenizer::from_bytes(input.as_bytes());
+        let tokens = tokenizer.tokenize_json().unwrap();
+
         assert_eq!(expected_tokens.to_vec(), tokens);
     }
 
@@ -269,7 +271,7 @@ mod test {
         use crate::value::Value::*;
 
         let input = r#"{"pairs":[{"x0":95.26235434764715,"y0":-33.78221816487377,"x1":41.844453001935875,"y1":-78.10213222087448},{"x0":115.42029308864215,"y0":87.52060937339934,"x1":83.39640643072113,"y1":28.643090267505812},{"sample":"string sample","nullable":null}]}"#;
-        let mut json_parser = JsonParser::parse_from_string(input);
+        let json_parser = JsonParser::parse_from_bytes(input.as_bytes());
 
         let mut entry1 = HashMap::new();
         entry1.insert("y0".to_string(), Number(F64(-33.78221816487377)));
@@ -293,6 +295,6 @@ mod test {
             Array(vec![Object(entry1), Object(entry2), Object(entry3)]),
         );
 
-        assert_eq!(json_parser.parse_json().unwrap(), Object(pairs));
+        assert_eq!(json_parser.unwrap(), Object(pairs));
     }
 }

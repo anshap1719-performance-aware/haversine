@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "haversine_input",
+    "haversine-compute",
     "json-parser"
 ]
