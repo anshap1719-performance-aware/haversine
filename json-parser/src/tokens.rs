@@ -1,7 +1,7 @@
 use crate::reader::JsonReader;
 use crate::value::Number;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor, Read, Seek};
 use std::iter::Peekable;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,25 +19,31 @@ pub enum Token {
     Null,
 }
 
-pub struct JsonTokenizer {
+pub struct JsonTokenizer<T>
+where
+    T: Read + Seek,
+{
     tokens: Vec<Token>,
-    iterator: Peekable<JsonReader>,
+    iterator: Peekable<JsonReader<T>>,
 }
 
-impl JsonTokenizer {
-    pub fn new(reader: File) -> Self {
-        let json_reader = JsonReader::new(BufReader::new(reader));
+impl<T> JsonTokenizer<T>
+where
+    T: Read + Seek,
+{
+    pub fn new(reader: File) -> JsonTokenizer<File> {
+        let json_reader = JsonReader::<File>::new(BufReader::new(reader));
 
-        Self {
+        JsonTokenizer {
             iterator: json_reader.peekable(),
             tokens: vec![],
         }
     }
 
-    pub fn from_bytes(input: &'static [u8]) -> Self {
-        let json_reader = JsonReader::from_bytes(BufReader::new(input));
+    pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
+        let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input);
 
-        Self {
+        JsonTokenizer {
             iterator: json_reader.peekable(),
             tokens: vec![],
         }
@@ -191,6 +197,7 @@ mod test {
     use crate::parser::JsonParser;
     use crate::value::Number::F64;
     use std::collections::HashMap;
+    use std::io::Cursor;
 
     #[test]
     fn test_tokenizer() {
@@ -260,7 +267,7 @@ mod test {
             CurlyClose,
         ];
 
-        let mut tokenizer = JsonTokenizer::from_bytes(input.as_bytes());
+        let mut tokenizer = JsonTokenizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input.as_bytes());
         let tokens = tokenizer.tokenize_json().unwrap();
 
         assert_eq!(expected_tokens.to_vec(), tokens);
@@ -294,6 +301,20 @@ mod test {
             "pairs".to_string(),
             Array(vec![Object(entry1), Object(entry2), Object(entry3)]),
         );
+
+        assert_eq!(json_parser.unwrap(), Object(pairs));
+    }
+
+    #[test]
+    fn parse_utf8_json() {
+        use crate::value::Value::*;
+
+        let input = r#"{"key1":"ࠄࠀࠆࠄࠀࠁࠃ","key2":"value2"}"#;
+        let json_parser = JsonParser::parse_from_bytes(input.as_bytes());
+
+        let mut pairs = HashMap::new();
+        pairs.insert("key1".to_string(), String("ࠄࠀࠆࠄࠀࠁࠃ".to_string()));
+        pairs.insert("key2".to_string(), String("value2".to_string()));
 
         assert_eq!(json_parser.unwrap(), Object(pairs));
     }

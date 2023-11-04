@@ -1,13 +1,15 @@
 use std::collections::VecDeque;
-use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Cursor, Read, Seek};
 use std::str::from_utf8;
 
 /// A struct that handles reading input data to be parsed and provides an iterator over said data
 /// character-by-character.
-pub struct JsonReader {
+pub struct JsonReader<T>
+where
+    T: Read + Seek,
+{
     /// A reference to the input data, which can be anything that implements [`Read`]
-    reader: Box<BufReader<dyn Read>>,
+    reader: BufReader<T>,
     /// A character buffer that holds queue of characters to be used by the iterator.
     ///
     /// This is necessary because UTF-8 can be 1-4 bytes long. Because of this, the reader
@@ -19,7 +21,10 @@ pub struct JsonReader {
     character_buffer: VecDeque<char>,
 }
 
-impl JsonReader {
+impl<T> JsonReader<T>
+where
+    T: Read + Seek,
+{
     /// Create a new [`JsonReader`] that reads from a file
     ///
     /// # Arguments
@@ -40,9 +45,9 @@ impl JsonReader {
     ///
     /// let json_reader = JsonReader::new(reader);
     /// ```
-    pub fn new(reader: BufReader<File>) -> Self {
+    pub fn new(reader: BufReader<T>) -> Self {
         JsonReader {
-            reader: Box::new(reader),
+            reader,
             character_buffer: VecDeque::with_capacity(4),
         }
     }
@@ -58,23 +63,25 @@ impl JsonReader {
     /// # Examples
     ///
     /// ```
-    /// use std::io::BufReader;
+    /// use std::io::{BufReader, Cursor};
     /// use json_parser::reader::JsonReader;
     ///
     /// let input_json_string = r#"{"key1":"value1","key2":"value2"}"#;
-    /// let reader = BufReader::new(input_json_string.as_bytes());
     ///
-    /// let json_reader = JsonReader::from_bytes(reader);
+    /// let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input_json_string.as_bytes());
     /// ```
-    pub fn from_bytes(reader: BufReader<&'static [u8]>) -> Self {
+    pub fn from_bytes(bytes: &'static [u8]) -> JsonReader<Cursor<&'static [u8]>> {
         JsonReader {
-            reader: Box::new(reader),
+            reader: BufReader::new(Cursor::new(bytes)),
             character_buffer: VecDeque::with_capacity(4),
         }
     }
 }
 
-impl Iterator for JsonReader {
+impl<T> Iterator for JsonReader<T>
+where
+    T: Read + Seek,
+{
     type Item = char;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -85,12 +92,25 @@ impl Iterator for JsonReader {
         let mut utf8_buffer = [0, 0, 0, 0];
         let _ = self.reader.read(&mut utf8_buffer);
 
-        if let Ok(string) = from_utf8(&utf8_buffer) {
-            self.character_buffer = string.chars().collect();
-            self.character_buffer.pop_front()
-        } else {
-            // TODO: Read "valid_upto" from error and rewind read buffer by errored bytes count
-            None
+        match from_utf8(&utf8_buffer) {
+            Ok(string) => {
+                self.character_buffer = string.chars().collect();
+                self.character_buffer.pop_front()
+            }
+            Err(error) => {
+                // Read valid bytes, and rewind the buf reader for the remaining bytes
+                // so that they can be read again in the next iteration.
+
+                let valid_bytes = error.valid_up_to();
+                let string = from_utf8(&utf8_buffer[..valid_bytes]).unwrap();
+
+                let remaining_bytes = 4 - valid_bytes;
+
+                let _ = self.reader.seek_relative(-(remaining_bytes as i64));
+
+                self.character_buffer = string.chars().collect();
+                self.character_buffer.pop_front()
+            }
         }
     }
 }

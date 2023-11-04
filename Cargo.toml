@@ -4,3 +4,4 @@ members = [
     "haversine-compute",
     "json-parser"
 ]
+resolver = "2"

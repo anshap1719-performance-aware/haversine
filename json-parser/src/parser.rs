@@ -2,6 +2,7 @@ use crate::tokens::{JsonTokenizer, Token};
 use crate::value::Value;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::{BufReader, Cursor};
 use std::iter::Peekable;
 use std::slice::Iter;
 
@@ -115,14 +116,14 @@ impl JsonParser {
     ///
     /// ```
     pub fn parse_from_bytes(input: &'static [u8]) -> Result<Value, ()> {
-        let mut json_tokenizer = JsonTokenizer::from_bytes(input);
+        let mut json_tokenizer = JsonTokenizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input);
         let tokens = json_tokenizer.tokenize_json()?;
 
         Ok(Self::tokens_to_value(tokens))
     }
 
     pub fn parse(reader: File) -> Result<Value, ()> {
-        let mut json_tokenizer = JsonTokenizer::new(reader);
+        let mut json_tokenizer = JsonTokenizer::<BufReader<File>>::new(reader);
         let tokens = json_tokenizer.tokenize_json()?;
 
         Ok(Self::tokens_to_value(tokens))
