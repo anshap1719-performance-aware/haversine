@@ -2,11 +2,9 @@ use crate::clustered::ClusteredHaversinePointsGenerator;
 use crate::types::HaversinePointGenerator;
 use crate::uniform::UniformHaversinePointsGenerator;
 use clap::{Parser, Subcommand};
-use json_parser::tokens::JsonParser;
 use std::fs::File;
 
 mod clustered;
-mod formula;
 mod types;
 mod uniform;
 
@@ -32,36 +30,38 @@ fn main() {
         Method::Uniform { seed, points_count } => {
             let generator = UniformHaversinePointsGenerator {};
             let mut output = File::create("./test.json").unwrap();
+            let mut results = File::create("./results.dump").unwrap();
 
             let average_distance = generator
-                .generate(seed.clone(), *points_count, &mut output)
+                .generate(seed.clone(), *points_count, &mut output, &mut results)
                 .unwrap();
 
             drop(output);
+            drop(results);
 
             println!("Average distances: {average_distance}");
 
-            let mut json_parser = JsonParser::new(File::open("./test.json").unwrap());
-            let value = json_parser.parse_json().unwrap();
-
-            println!("{:#?}", value);
+            // let value = JsonParser::parse(File::open("./test.json").unwrap()).unwrap();
+            //
+            // println!("{:#?}", value);
         }
         Method::Cluster { seed, points_count } => {
             let generator = ClusteredHaversinePointsGenerator {};
             let mut output = File::create("./test.json").unwrap();
+            let mut results = File::create("./results.dump").unwrap();
 
             let average_distance = generator
-                .generate(seed.clone(), *points_count, &mut output)
+                .generate(seed.clone(), *points_count, &mut output, &mut results)
                 .unwrap();
 
             drop(output);
+            drop(results);
 
             println!("Average distances: {average_distance}");
 
-            let mut json_parser = JsonParser::new(File::open("./test.json").unwrap());
-            let value = json_parser.parse_json().unwrap();
-
-            println!("{:#?}", value);
+            // let value = JsonParser::parse(File::open("./test.json").unwrap()).unwrap();
+            //
+            // println!("{:#?}", value);
         }
     }
 }

@@ -1,3 +1,4 @@
+use haversine_compute::Point;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use serde::Serialize;
@@ -6,17 +7,9 @@ use std::error::Error;
 use std::hash::Hasher;
 use std::io::Write;
 
-#[derive(Copy, Clone, Serialize, Default)]
-pub struct Point {
-    pub x0: f64,
-    pub y0: f64,
-    pub x1: f64,
-    pub y1: f64,
-}
-
 #[derive(Clone, Serialize, Default)]
-pub struct JsonResult {
-    pub pairs: Vec<Point>,
+pub struct JsonResult<'a> {
+    pub pairs: &'a [Point],
 }
 
 pub type BoxDynError = Box<dyn Error>;
@@ -39,5 +32,6 @@ where
         seed: String,
         count: usize,
         output: &mut impl Write,
+        results: &mut impl Write,
     ) -> Result<f64, BoxDynError>;
 }

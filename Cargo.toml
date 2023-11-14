@@ -2,6 +2,7 @@
 members = [
     "haversine_input",
     "haversine-compute",
-    "json-parser"
+    "json-parser",
+    "instrument"
 ]
 resolver = "2"

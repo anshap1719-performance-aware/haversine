@@ -1,5 +1,5 @@
-use crate::formula::compute_haversine;
-use crate::types::{BoxDynError, HaversinePointGenerator, JsonResult, Point};
+use crate::types::{BoxDynError, HaversinePointGenerator, JsonResult};
+use haversine_compute::{compute_haversine, Point};
 use rand::distributions::{Distribution, Uniform};
 use std::io::Write;
 
@@ -11,6 +11,7 @@ impl HaversinePointGenerator for UniformHaversinePointsGenerator {
         seed: String,
         count: usize,
         output: &mut impl Write,
+        results: &mut impl Write,
     ) -> Result<f64, BoxDynError> {
         let mut rng = self.rng_from_seed(seed);
 
@@ -45,10 +46,17 @@ impl HaversinePointGenerator for UniformHaversinePointsGenerator {
         serde_json::to_writer(
             output,
             &JsonResult {
-                pairs: container.to_vec(),
+                pairs: container.as_slice(),
             },
         )?;
 
-        Ok(computed_distances.iter().sum::<f64>() / count as f64)
+        let mut sum = 0.;
+
+        for value in computed_distances {
+            results.write_all(format!("{value}\n").as_bytes())?;
+            sum += value;
+        }
+
+        Ok(sum / count as f64)
     }
 }

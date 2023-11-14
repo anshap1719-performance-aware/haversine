@@ -1,5 +1,5 @@
-use crate::formula::compute_haversine;
-use crate::types::{BoxDynError, HaversinePointGenerator, JsonResult, Point};
+use crate::types::{BoxDynError, HaversinePointGenerator, JsonResult};
+use haversine_compute::{compute_haversine, Point};
 use rand::distributions::Distribution;
 use rand::distributions::Uniform;
 use rand::{thread_rng, Rng};
@@ -13,6 +13,7 @@ impl HaversinePointGenerator for ClusteredHaversinePointsGenerator {
         seed: String,
         count: usize,
         output: &mut impl Write,
+        results: &mut impl Write,
     ) -> Result<f64, BoxDynError> {
         let mut rng = self.rng_from_seed(seed);
         let mut cluster_rng = thread_rng();
@@ -59,17 +60,20 @@ impl HaversinePointGenerator for ClusteredHaversinePointsGenerator {
             }
         }
 
-        let computed_distances = container
+        let computed_distances: Vec<f64> = container
             .iter()
-            .map(|point| compute_haversine(*point, 6372.8));
+            .map(|point| compute_haversine(*point, 6372.8))
+            .collect();
 
-        serde_json::to_writer(
-            output,
-            &JsonResult {
-                pairs: container.to_vec(),
-            },
-        )?;
+        serde_json::to_writer(output, &JsonResult { pairs: container })?;
 
-        Ok(computed_distances.sum::<f64>() / count as f64)
+        let mut sum = 0.;
+
+        for value in computed_distances {
+            results.write_all(format!("{value}\n").as_bytes())?;
+            sum += value;
+        }
+
+        Ok(sum / count as f64)
     }
 }
