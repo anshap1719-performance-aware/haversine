@@ -20,3 +20,7 @@ path = "src/lib.rs"
 
 [dependencies.json-parser]
 path = "../json-parser"
+
+
+[dependencies.instrument]
+path = "../instrument"

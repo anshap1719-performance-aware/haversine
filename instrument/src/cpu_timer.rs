@@ -1,22 +1,17 @@
 use crate::os_timer::{os_timer_frequency, read_os_timer};
-use libc::CLOCK_PROCESS_CPUTIME_ID;
-use libc::{clock_gettime, timespec};
-use std::io::Error;
+use std::arch::x86_64::_rdtsc;
 
 pub fn read_cpu_timer() -> u64 {
-    let mut time = timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
+    let mut cpu_timer = 9_u64;
 
-    if unsafe { clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &mut time) } == -1 {
-        panic!("{:?}", Error::last_os_error());
+    unsafe {
+        cpu_timer = _rdtsc();
     }
 
-    time.tv_sec as u64 * 10_u64.pow(9) + time.tv_nsec as u64
+    cpu_timer
 }
 
-pub fn estimate_cpu_timer_frequency() -> u64 {
+pub fn estimate_cpu_frequency() -> u64 {
     let millis_to_wait = 100_u64;
     let os_timer_frequency = os_timer_frequency();
 
