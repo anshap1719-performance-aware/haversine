@@ -70,6 +70,7 @@ where
     ///
     /// let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input_json_string.as_bytes());
     /// ```
+    #[must_use]
     pub fn from_bytes(bytes: &'static [u8]) -> JsonReader<Cursor<&'static [u8]>> {
         JsonReader {
             reader: BufReader::new(Cursor::new(bytes)),
@@ -84,6 +85,7 @@ where
 {
     type Item = char;
 
+    #[allow(clippy::cast_possible_wrap)]
     fn next(&mut self) -> Option<Self::Item> {
         if !self.character_buffer.is_empty() {
             return self.character_buffer.pop_front();

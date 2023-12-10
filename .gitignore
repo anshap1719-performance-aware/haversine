@@ -2,3 +2,4 @@
 /.idea
 *.json
 *.dump
+*.log

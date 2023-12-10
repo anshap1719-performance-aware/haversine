@@ -31,7 +31,7 @@ impl<T> JsonTokenizer<T>
 where
     T: Read + Seek,
 {
-    pub fn new(reader: File) -> JsonTokenizer<File> {
+    #[must_use] pub fn new(reader: File) -> JsonTokenizer<File> {
         let json_reader = JsonReader::<File>::new(BufReader::new(reader));
 
         JsonTokenizer {
@@ -40,7 +40,7 @@ where
         }
     }
 
-    pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
+    #[must_use] pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
         let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input);
 
         JsonTokenizer {
@@ -220,25 +220,25 @@ mod test {
             String("x0".to_string()),
             Quotes,
             Colon,
-            Number(F64(95.26235434764715)),
+            Number(F64(95.262_354_347_647_15)),
             Comma,
             Quotes,
             String("y0".to_string()),
             Quotes,
             Colon,
-            Number(F64(-33.78221816487377)),
+            Number(F64(-33.782_218_164_873_77)),
             Comma,
             Quotes,
             String("x1".to_string()),
             Quotes,
             Colon,
-            Number(F64(41.844453001935875)),
+            Number(F64(41.844_453_001_935_875)),
             Comma,
             Quotes,
             String("y1".to_string()),
             Quotes,
             Colon,
-            Number(F64(-78.10213222087448)),
+            Number(F64(-78.102_132_220_874_48)),
             CurlyClose,
             Comma,
             CurlyOpen,
@@ -246,25 +246,25 @@ mod test {
             String("x0".to_string()),
             Quotes,
             Colon,
-            Number(F64(115.42029308864215)),
+            Number(F64(115.420_293_088_642_15)),
             Comma,
             Quotes,
             String("y0".to_string()),
             Quotes,
             Colon,
-            Number(F64(87.52060937339934)),
+            Number(F64(87.520_609_373_399_34)),
             Comma,
             Quotes,
             String("x1".to_string()),
             Quotes,
             Colon,
-            Number(F64(83.39640643072113)),
+            Number(F64(83.396_406_430_721_13)),
             Comma,
             Quotes,
             String("y1".to_string()),
             Quotes,
             Colon,
-            Number(F64(28.643090267505812)),
+            Number(F64(28.643_090_267_505_812)),
             CurlyClose,
             ArrayClose,
             CurlyClose,
@@ -284,16 +284,16 @@ mod test {
         let json_parser = JsonParser::parse_from_bytes(input.as_bytes());
 
         let mut entry1 = HashMap::new();
-        entry1.insert("y0".to_string(), Number(F64(-33.78221816487377)));
-        entry1.insert("x0".to_string(), Number(F64(95.26235434764715)));
-        entry1.insert("y1".to_string(), Number(F64(-78.10213222087448)));
-        entry1.insert("x1".to_string(), Number(F64(41.844453001935875)));
+        entry1.insert("y0".to_string(), Number(F64(-33.782_218_164_873_77)));
+        entry1.insert("x0".to_string(), Number(F64(95.262_354_347_647_15)));
+        entry1.insert("y1".to_string(), Number(F64(-78.102_132_220_874_48)));
+        entry1.insert("x1".to_string(), Number(F64(41.844_453_001_935_875)));
 
         let mut entry2 = HashMap::new();
-        entry2.insert("y0".to_string(), Number(F64(87.52060937339934)));
-        entry2.insert("x0".to_string(), Number(F64(115.42029308864215)));
-        entry2.insert("x1".to_string(), Number(F64(83.39640643072113)));
-        entry2.insert("y1".to_string(), Number(F64(28.643090267505812)));
+        entry2.insert("y0".to_string(), Number(F64(87.520_609_373_399_34)));
+        entry2.insert("x0".to_string(), Number(F64(115.420_293_088_642_15)));
+        entry2.insert("x1".to_string(), Number(F64(83.396_406_430_721_13)));
+        entry2.insert("y1".to_string(), Number(F64(28.643_090_267_505_812)));
 
         let mut entry3 = HashMap::new();
         entry3.insert("sample".to_string(), String("string sample".to_string()));

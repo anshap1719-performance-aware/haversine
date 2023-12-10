@@ -12,3 +12,6 @@ path = "../instrument"
 
 [dependencies.instrument_macros]
 path = "../instrument/macros"
+
+[lints]
+workspace = true

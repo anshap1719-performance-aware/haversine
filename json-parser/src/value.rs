@@ -30,6 +30,7 @@ impl TryFrom<&Value> for String {
 impl TryFrom<&Value> for i64 {
     type Error = ();
 
+    #[allow(clippy::cast_possible_truncation)]
     fn try_from(value: &Value) -> Result<Self, ()> {
         match value {
             Value::Number(value) => match value {
@@ -77,6 +78,7 @@ impl<'a> TryFrom<&'a Value> for &'a Vec<Value> {
     }
 }
 
+#[allow(clippy::implicit_hasher)]
 impl<'a> TryFrom<&'a Value> for &'a HashMap<String, Value> {
     type Error = ();
 

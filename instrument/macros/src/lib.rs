@@ -3,7 +3,6 @@ extern crate proc_macro;
 use crate::syn::parse_macro_input;
 pub(crate) use darling::export::syn;
 use darling::export::syn::parse::{Parse, ParseStream};
-use darling::export::syn::Fields::Unit;
 use darling::export::syn::{Expr, LitStr, ReturnType};
 use darling::export::syn::{ItemFn, Signature, Token};
 use darling::export::NestedMeta;

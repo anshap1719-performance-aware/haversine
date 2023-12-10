@@ -1,3 +1,6 @@
+use assert_float_eq::{
+    afe_abs, afe_absolute_error_msg, afe_is_absolute_eq, assert_float_absolute_eq,
+};
 use clap::Parser;
 use haversine_compute::{compute_haversine, Point};
 use instrument::profiler::GlobalProfilerWrapper;
@@ -21,7 +24,7 @@ fn parse_haversine_pairs(file: File) -> Vec<Value> {
     let points: &HashMap<String, Value> = (&json_value).try_into().unwrap();
     let pairs: &Vec<Value> = points.get("pairs").unwrap().try_into().unwrap();
 
-    pairs.to_vec()
+    pairs.clone()
 }
 
 #[instrument(main)]
@@ -59,7 +62,7 @@ fn main() {
                 sum += result;
 
                 if let Some(answer) = answers.get(index) {
-                    assert_eq!(*answer, result, "Difference: {}", *answer - result);
+                    assert_float_absolute_eq!(*answer, result, f64::EPSILON);
                 }
             }
         }
