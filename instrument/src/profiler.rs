@@ -21,6 +21,7 @@ pub struct ProfilerEntryData {
     index: usize,
     parent_index: Option<usize>,
     ancestors: usize,
+    children_elapsed: u64,
 }
 
 pub struct GlobalProfilerWrapper(pub GlobalProfiler);
@@ -77,13 +78,16 @@ impl GlobalProfilerWrapper {
             let tab = "\t";
             let prefix = tab.repeat(child.inner().ancestors);
 
-            let runtime = child.compute_runtime();
+            let runtime_with_children = child.compute_runtime();
+            let runtime = runtime_with_children - child.get_child_elapsed();
 
-            let time = Duration::from_secs_f64(runtime as f64 / cpu_frequency as f64);
+            let time = Duration::from_secs_f64(runtime_with_children as f64 / cpu_frequency as f64);
+
             let percentage = ratio * runtime as f64;
+            let percentage_with_children = ratio * runtime_with_children as f64;
 
             println!(
-                "{prefix}{} took {time:.2?} ({percentage:.4}%)",
+                "{prefix}{} took {time:.2?} ({percentage:.4}% | {percentage_with_children:.4}% w/ children)",
                 child.identifier(),
             );
         }
@@ -139,15 +143,34 @@ impl ProfilerEntry {
 
                 if let Some(entry) = profiler.children.get_mut(data.index) {
                     let entry = entry.inner_mut();
-                    entry.end = Some(read_cpu_timer());
+                    let end = read_cpu_timer();
+                    entry.end = Some(end);
+
+                    let elapsed = entry.start - end;
+
+                    unsafe {
+                        if let Some(parent_index) = LAST_INDEX.pop() {
+                            if let Some(parent) = profiler.children.get_mut(parent_index) {
+                                parent.add_child_elapsed(elapsed);
+                            }
+                        }
+                    }
                 } else {
                     panic!("Invalid entry: {data:?}");
                 }
-
-                unsafe {
-                    LAST_INDEX.pop();
-                }
             }
+        }
+    }
+
+    pub fn add_child_elapsed(&mut self, elapsed: u64) {
+        match self {
+            CodeBlock(data) | Function(data) => data.children_elapsed += elapsed,
+        }
+    }
+
+    pub fn get_child_elapsed(&self) -> u64 {
+        match self {
+            CodeBlock(data) | Function(data) => data.children_elapsed,
         }
     }
 
@@ -172,6 +195,7 @@ impl ProfilerEntryData {
                 index: 0,
                 parent_index: LAST_INDEX.last().copied(),
                 ancestors: LAST_INDEX.len(),
+                children_elapsed: 0,
             }
         }
     }
