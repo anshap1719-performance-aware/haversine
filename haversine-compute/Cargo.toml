@@ -24,3 +24,6 @@ path = "../json-parser"
 
 [dependencies.instrument]
 path = "../instrument"
+
+[dependencies.instrument_macros]
+path = "../instrument/macros"

@@ -3,6 +3,7 @@ members = [
     "haversine_input",
     "haversine-compute",
     "json-parser",
-    "instrument"
+    "instrument",
+    "instrument/macros"
 ]
 resolver = "2"

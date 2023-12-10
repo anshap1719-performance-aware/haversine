@@ -1,11 +1,26 @@
 use crate::os_timer::{os_timer_frequency, read_os_timer};
-use std::arch::x86_64::_rdtsc;
 
+#[cfg(target_arch = "x86_64")]
 pub fn read_cpu_timer() -> u64 {
+    use std::arch::x86_64::_rdtsc;
+
     let mut cpu_timer = 9_u64;
 
     unsafe {
         cpu_timer = _rdtsc();
+    }
+
+    cpu_timer
+}
+
+#[cfg(target_arch = "aarch64")]
+pub fn read_cpu_timer() -> u64 {
+    use mach2::mach_time::mach_absolute_time;
+
+    let mut cpu_timer = 0_u64;
+
+    unsafe {
+        cpu_timer = mach_absolute_time();
     }
 
     cpu_timer

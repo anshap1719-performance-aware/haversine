@@ -49,6 +49,7 @@ where
         }
     }
 
+    #[instrument]
     fn parse_string(&mut self) -> Result<String, ()> {
         let mut string_characters = Vec::<char>::new();
 
@@ -63,6 +64,7 @@ where
         Ok(String::from_iter(string_characters))
     }
 
+    #[instrument]
     fn parse_number(&mut self) -> Result<Number, ()> {
         let mut number_characters = Vec::<char>::new();
         let mut is_decimal = false;
@@ -106,6 +108,7 @@ where
         }
     }
 
+    #[instrument]
     pub fn tokenize_json(&mut self) -> Result<&[Token], ()> {
         while let Some(character) = self.iterator.peek() {
             match *character {

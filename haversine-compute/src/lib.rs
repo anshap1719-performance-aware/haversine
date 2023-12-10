@@ -1,3 +1,4 @@
+use instrument_macros::instrument;
 use serde::Serialize;
 
 #[derive(Copy, Clone, Serialize, Default)]
@@ -8,6 +9,7 @@ pub struct Point {
     pub y1: f64,
 }
 
+#[instrument]
 pub fn compute_haversine(Point { x0, y0, x1, y1 }: Point, earth_radius: f64) -> f64 {
     let delta_latitude = y1 - y0;
     let delta_longitude = x1 - x0;
