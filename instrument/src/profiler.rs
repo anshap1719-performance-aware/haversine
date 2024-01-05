@@ -1,4 +1,5 @@
 use crate::cpu_timer::{estimate_cpu_frequency, read_cpu_timer};
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub struct GlobalProfiler {
@@ -24,6 +25,15 @@ pub struct ProfilerEntryData {
     children_elapsed: u64,
 }
 
+pub struct ProfilerMetricEntry {
+    identifier: &'static str,
+    elapsed_inclusive: u64,
+    elapsed_exclusive: u64,
+    hit_count: u64,
+    ancestors_count: usize,
+    insert_index: usize,
+}
+
 pub struct GlobalProfilerWrapper(pub GlobalProfiler);
 
 pub static mut GLOBAL_PROFILER: GlobalProfilerWrapper = GlobalProfilerWrapper(GlobalProfiler {
@@ -38,6 +48,7 @@ impl GlobalProfilerWrapper {
     pub fn start() {
         let profiler = unsafe { &mut GLOBAL_PROFILER.0 };
 
+        profiler.children = Vec::with_capacity(2048);
         profiler.start = read_cpu_timer();
     }
 
@@ -74,25 +85,67 @@ impl GlobalProfilerWrapper {
 
         let cpu_frequency = estimate_cpu_frequency();
 
+        let mut child_map = HashMap::<&str, ProfilerMetricEntry>::new();
+        let mut insert_index = 0;
+
         for child in children {
-            let tab = "\t";
-            let prefix = tab.repeat(child.inner().ancestors);
+            let total_runtime = child.compute_runtime();
+            let children_runtime = child.get_child_elapsed();
 
-            let runtime_with_children = child.compute_runtime();
-            let runtime = runtime_with_children - child.get_child_elapsed();
+            if let Some(child_entry) = child_map.get_mut(child.identifier()) {
+                child_entry.hit_count += 1;
+                child_entry.elapsed_inclusive += total_runtime;
+                child_entry.elapsed_exclusive += total_runtime - children_runtime;
+            } else {
+                child_map.insert(
+                    child.identifier(),
+                    ProfilerMetricEntry {
+                        identifier: child.identifier(),
+                        hit_count: 1,
+                        elapsed_inclusive: total_runtime,
+                        elapsed_exclusive: total_runtime - children_runtime,
+                        ancestors_count: child.inner().ancestors,
+                        insert_index,
+                    },
+                );
 
-            let time = Duration::from_secs_f64(runtime_with_children as f64 / cpu_frequency as f64);
-
-            let percentage = ratio * runtime as f64;
-            let percentage_with_children = ratio * runtime_with_children as f64;
-
-            println!(
-                "{prefix}{} took {time:.2?} ({percentage:.4}% | {percentage_with_children:.4}% w/ children)",
-                child.identifier(),
-            );
+                insert_index += 1;
+            }
         }
 
-        println!("program took {} cycles", end - start);
+        let mut entries = child_map.values().collect::<Vec<_>>();
+        entries.sort_by(|a, b| a.insert_index.cmp(&b.insert_index));
+
+        for value in entries {
+            let tab = "\t";
+            let prefix = tab.repeat(value.ancestors_count);
+
+            let time =
+                Duration::from_secs_f64(value.elapsed_inclusive as f64 / cpu_frequency as f64);
+
+            let percentage = ratio * value.elapsed_exclusive as f64;
+
+            if value.elapsed_exclusive.abs_diff(value.elapsed_inclusive) < 100 {
+                println!(
+                    "{prefix}{}[{}] took {time:.2?} ({percentage:.4}%)",
+                    value.identifier, value.hit_count
+                );
+            } else {
+                let percentage_with_children = ratio * value.elapsed_inclusive as f64;
+
+                println!(
+                    "{prefix}{}[{}] took {time:.2?} ({percentage:.4}% | {percentage_with_children:.4}% w/ children)",
+                    value.identifier,
+                    value.hit_count
+                );
+            }
+        }
+
+        let program_runtime = Duration::from_secs_f64((end - start) as f64 / cpu_frequency as f64);
+        println!(
+            "program took {program_runtime:.2?} ({} cycles)",
+            end - start
+        );
     }
 }
 
@@ -146,13 +199,15 @@ impl ProfilerEntry {
                     let end = read_cpu_timer();
                     entry.end = Some(end);
 
-                    let elapsed = entry.start - end;
+                    let elapsed = end - entry.start;
 
                     unsafe {
-                        if let Some(parent_index) = LAST_INDEX.pop() {
-                            if let Some(parent) = profiler.children.get_mut(parent_index) {
-                                parent.add_child_elapsed(elapsed);
-                            }
+                        LAST_INDEX.pop();
+                    }
+
+                    if let Some(parent_index) = entry.parent_index {
+                        if let Some(parent) = profiler.children.get_mut(parent_index) {
+                            parent.add_child_elapsed(elapsed);
                         }
                     }
                 } else {
@@ -168,6 +223,7 @@ impl ProfilerEntry {
         }
     }
 
+    #[must_use]
     pub fn get_child_elapsed(&self) -> u64 {
         match self {
             CodeBlock(data) | Function(data) => data.children_elapsed,

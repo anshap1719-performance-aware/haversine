@@ -10,6 +10,7 @@ pub struct Point {
 }
 
 #[instrument]
+#[must_use]
 pub fn compute_haversine(Point { x0, y0, x1, y1 }: Point, earth_radius: f64) -> f64 {
     let delta_latitude = y1 - y0;
     let delta_longitude = x1 - x0;

@@ -31,7 +31,8 @@ impl<T> JsonTokenizer<T>
 where
     T: Read + Seek,
 {
-    #[must_use] pub fn new(reader: File) -> JsonTokenizer<File> {
+    #[must_use]
+    pub fn new(reader: File) -> JsonTokenizer<File> {
         let json_reader = JsonReader::<File>::new(BufReader::new(reader));
 
         JsonTokenizer {
@@ -40,7 +41,8 @@ where
         }
     }
 
-    #[must_use] pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
+    #[must_use]
+    pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
         let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input);
 
         JsonTokenizer {

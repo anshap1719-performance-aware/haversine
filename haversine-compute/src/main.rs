@@ -3,7 +3,6 @@ use assert_float_eq::{
 };
 use clap::Parser;
 use haversine_compute::{compute_haversine, Point};
-use instrument::profiler::GlobalProfilerWrapper;
 use json_parser::parser::JsonParser;
 use json_parser::value::Value;
 use std::collections::HashMap;
@@ -21,10 +20,12 @@ pub struct HaversineCompute {
 fn parse_haversine_pairs(file: File) -> Vec<Value> {
     let json_value = JsonParser::parse(file).unwrap();
 
-    let points: &HashMap<String, Value> = (&json_value).try_into().unwrap();
-    let pairs: &Vec<Value> = points.get("pairs").unwrap().try_into().unwrap();
+    instrument_block!("Lookup & Convert", {
+        let points: &HashMap<String, Value> = (&json_value).try_into().unwrap();
+        let pairs: &Vec<Value> = points.get("pairs").unwrap().try_into().unwrap();
 
-    pairs.clone()
+        pairs.clone()
+    })
 }
 
 #[instrument(main)]
@@ -69,8 +70,6 @@ fn main() {
     });
 
     println!("Average distance: {}", sum / pairs.len() as f64);
-
-    GlobalProfilerWrapper::end();
 }
 
 #[macro_use]
