@@ -47,11 +47,11 @@ where
 
         JsonTokenizer {
             iterator: json_reader.peekable(),
-            tokens: vec![],
+            tokens: Vec::with_capacity(input.len()),
         }
     }
 
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     fn parse_string(&mut self) -> Result<String, ()> {
         let mut string_characters = Vec::<char>::new();
 
@@ -66,19 +66,29 @@ where
         Ok(String::from_iter(string_characters))
     }
 
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     fn parse_number(&mut self) -> Result<Number, ()> {
         let mut number_characters = Vec::<char>::new();
         let mut is_decimal = false;
+        let mut epsilon_characters = Vec::<char>::new();
+        let mut is_epsilon_characters = false;
 
         while let Some(character) = self.iterator.peek() {
             match character {
                 '-' => {
-                    number_characters.push('-');
+                    if (is_epsilon_characters) {
+                        epsilon_characters.push('-');
+                    } else {
+                        number_characters.push('-');
+                    }
                     let _ = self.iterator.next();
                 }
                 digit @ '0'..='9' => {
-                    number_characters.push(*digit);
+                    if (is_epsilon_characters) {
+                        epsilon_characters.push(*digit);
+                    } else {
+                        number_characters.push(*digit);
+                    }
                     let _ = self.iterator.next();
                 }
                 '.' => {
@@ -88,6 +98,10 @@ where
                 }
                 '}' | ',' | ']' | ':' => {
                     break;
+                }
+                'e' | 'E' => {
+                    is_epsilon_characters = true;
+                    let _ = self.iterator.next();
                 }
                 _ => {
                     panic!("Unexpected character while parsing number: {character}")
@@ -110,7 +124,7 @@ where
         }
     }
 
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     pub fn tokenize_json(&mut self) -> Result<&[Token], ()> {
         while let Some(character) = self.iterator.peek() {
             match *character {

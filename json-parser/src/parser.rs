@@ -11,7 +11,7 @@ pub struct JsonParser;
 
 impl JsonParser {
     /// Parse an object from token stream.
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     fn process_object(iterator: &mut Peekable<Iter<Token>>) -> HashMap<String, Value> {
         let mut is_key = true;
         let mut current_key: Option<&str> = None;
@@ -74,7 +74,7 @@ impl JsonParser {
     }
 
     /// Parse an array from token stream
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     fn process_array(iterator: &mut Peekable<Iter<Token>>) -> Vec<Value> {
         let mut internal_value = Vec::<Value>::new();
 
@@ -113,7 +113,7 @@ impl JsonParser {
     /// ```
     ///
     /// ```
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     pub fn parse_from_bytes(input: &'static [u8]) -> Result<Value, ()> {
         let mut json_tokenizer = JsonTokenizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input);
         let tokens = json_tokenizer.tokenize_json()?;
@@ -121,7 +121,7 @@ impl JsonParser {
         Ok(Self::tokens_to_value(tokens))
     }
 
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     pub fn parse(reader: File) -> Result<Value, ()> {
         let mut json_tokenizer = JsonTokenizer::<BufReader<File>>::new(reader);
         let tokens = json_tokenizer.tokenize_json()?;
@@ -129,7 +129,7 @@ impl JsonParser {
         Ok(Self::tokens_to_value(tokens))
     }
 
-    #[instrument]
+    #[cfg_attr(feature = "profile", instrument)]
     fn tokens_to_value(tokens: &[Token]) -> Value {
         let mut iterator = tokens.iter().peekable();
 

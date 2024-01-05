@@ -31,3 +31,6 @@ path = "../instrument/macros"
 
 [lints]
 workspace = true
+
+[features]
+profile = ["json-parser/profile"]

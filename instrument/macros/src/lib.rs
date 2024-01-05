@@ -117,7 +117,7 @@ pub fn instrument_block(input: TokenStream) -> TokenStream {
     } = parse_macro_input!(input as InstrumentBlock);
 
     quote!(
-        {
+        if cfg!(feature = "profile") {
             let mut __profiler_entry = instrument::profiler::ProfilerEntry::CodeBlock(instrument::profiler::ProfilerEntryData::init(#identifier));
             instrument::profiler::GlobalProfilerWrapper::push(&mut __profiler_entry);
 
@@ -128,6 +128,8 @@ pub fn instrument_block(input: TokenStream) -> TokenStream {
             __profiler_entry.end();
 
             result
+        } else {
+            #expression
         }
     ).into()
 }

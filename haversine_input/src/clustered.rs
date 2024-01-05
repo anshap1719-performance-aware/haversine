@@ -20,8 +20,6 @@ impl HaversinePointGenerator for ClusteredHaversinePointsGenerator {
 
         let cluster_count = count.next_power_of_two().ilog2();
 
-        println!("{cluster_count}");
-
         let clusters: Vec<(f64, (f64, f64))> = (0..cluster_count)
             .map(|_| {
                 (

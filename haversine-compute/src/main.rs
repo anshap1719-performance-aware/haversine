@@ -16,7 +16,7 @@ pub struct HaversineCompute {
     answers: Option<String>,
 }
 
-#[instrument]
+#[cfg_attr(feature = "profile", instrument)]
 fn parse_haversine_pairs(file: File) -> Vec<Value> {
     let json_value = JsonParser::parse(file).unwrap();
 
@@ -28,7 +28,7 @@ fn parse_haversine_pairs(file: File) -> Vec<Value> {
     })
 }
 
-#[instrument(main)]
+#[cfg_attr(feature = "profile", instrument(main))]
 fn main() {
     let HaversineCompute { input, answers } = HaversineCompute::parse();
 
