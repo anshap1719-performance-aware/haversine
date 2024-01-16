@@ -43,19 +43,27 @@ impl HaversinePointGenerator for UniformHaversinePointsGenerator {
             computed_distances.push(compute_haversine(point, 6372.8));
         }
 
-        serde_json::to_writer(
-            output,
-            &JsonResult {
-                pairs: container.as_slice(),
-            },
-        )?;
+        let data = serde_json::to_vec(&JsonResult { pairs: &container })?;
+
+        output.write_all(&data).unwrap();
+        output.flush().unwrap();
+
+        let computed_distances: Vec<f64> = container
+            .iter()
+            .map(|point| compute_haversine(*point, 6372.8))
+            .collect();
 
         let mut sum = 0.;
 
+        let mut sum_results = Vec::<u8>::new();
+
         for value in computed_distances {
-            results.write_all(format!("{value}\n").as_bytes())?;
+            sum_results.extend_from_slice(format!("{value}\n").as_bytes());
             sum += value;
         }
+
+        results.write_all(&sum_results).unwrap();
+        results.flush().unwrap();
 
         Ok(sum / count as f64)
     }

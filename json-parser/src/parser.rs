@@ -11,7 +11,6 @@ pub struct JsonParser;
 
 impl JsonParser {
     /// Parse an object from token stream.
-    #[cfg_attr(feature = "profile", instrument)]
     fn process_object(iterator: &mut Peekable<Iter<Token>>) -> HashMap<String, Value> {
         let mut is_key = true;
         let mut current_key: Option<&str> = None;

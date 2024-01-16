@@ -51,7 +51,6 @@ where
         }
     }
 
-    #[cfg_attr(feature = "profile", instrument)]
     fn parse_string(&mut self) -> Result<String, ()> {
         let mut string_characters = Vec::<char>::new();
 
@@ -66,7 +65,6 @@ where
         Ok(String::from_iter(string_characters))
     }
 
-    #[cfg_attr(feature = "profile", instrument)]
     fn parse_number(&mut self) -> Result<Number, ()> {
         let mut number_characters = Vec::<char>::new();
         let mut is_decimal = false;
@@ -76,7 +74,7 @@ where
         while let Some(character) = self.iterator.peek() {
             match character {
                 '-' => {
-                    if (is_epsilon_characters) {
+                    if is_epsilon_characters {
                         epsilon_characters.push('-');
                     } else {
                         number_characters.push('-');
@@ -84,7 +82,7 @@ where
                     let _ = self.iterator.next();
                 }
                 digit @ '0'..='9' => {
-                    if (is_epsilon_characters) {
+                    if is_epsilon_characters {
                         epsilon_characters.push(*digit);
                     } else {
                         number_characters.push(*digit);
