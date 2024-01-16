@@ -51,7 +51,7 @@ where
         }
     }
 
-    fn parse_string(&mut self) -> Result<String, ()> {
+    fn parse_string(&mut self) -> String {
         let mut string_characters = Vec::<char>::new();
 
         for character in self.iterator.by_ref() {
@@ -62,7 +62,7 @@ where
             string_characters.push(character);
         }
 
-        Ok(String::from_iter(string_characters))
+        String::from_iter(string_characters)
     }
 
     fn parse_number(&mut self) -> Result<Number, ()> {
@@ -132,7 +132,7 @@ where
                     // Skip quote token since we already added it to the tokens list.
                     let _ = self.iterator.next();
 
-                    let string = self.parse_string()?;
+                    let string = self.parse_string();
 
                     self.tokens.push(Token::String(string));
                     self.tokens.push(Token::Quotes);
