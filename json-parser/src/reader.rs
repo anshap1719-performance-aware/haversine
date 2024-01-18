@@ -71,7 +71,7 @@ where
     /// let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input_json_string.as_bytes());
     /// ```
     #[must_use]
-    pub fn from_bytes(bytes: &'static [u8]) -> JsonReader<Cursor<&'static [u8]>> {
+    pub fn from_bytes(bytes: &[u8]) -> JsonReader<Cursor<&[u8]>> {
         JsonReader {
             reader: BufReader::new(Cursor::new(bytes)),
             character_buffer: VecDeque::with_capacity(4),

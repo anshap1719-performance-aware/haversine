@@ -23,6 +23,7 @@ pub struct ProfilerEntryData {
     parent_index: Option<usize>,
     ancestors: usize,
     children_elapsed: u64,
+    processed_bytes: u64,
 }
 
 pub struct ProfilerMetricEntry {
@@ -32,6 +33,7 @@ pub struct ProfilerMetricEntry {
     hit_count: u64,
     ancestors_count: usize,
     insert_index: usize,
+    processed_bytes: u64,
 }
 
 pub struct GlobalProfilerWrapper(pub GlobalProfiler);
@@ -91,11 +93,13 @@ impl GlobalProfilerWrapper {
         for child in children {
             let total_runtime = child.compute_runtime();
             let children_runtime = child.get_child_elapsed();
+            let processed_bytes = child.processed_byes();
 
             if let Some(child_entry) = child_map.get_mut(child.identifier()) {
                 child_entry.hit_count += 1;
                 child_entry.elapsed_inclusive += total_runtime;
                 child_entry.elapsed_exclusive += total_runtime - children_runtime;
+                child_entry.processed_bytes += processed_bytes;
             } else {
                 child_map.insert(
                     child.identifier(),
@@ -106,6 +110,7 @@ impl GlobalProfilerWrapper {
                         elapsed_exclusive: total_runtime - children_runtime,
                         ancestors_count: child.inner().ancestors,
                         insert_index,
+                        processed_bytes,
                     },
                 );
 
@@ -125,6 +130,9 @@ impl GlobalProfilerWrapper {
 
             let percentage = ratio * value.elapsed_exclusive as f64;
 
+            let data_in_megabytes = (value.processed_bytes as f64) / 1024. / 1024.;
+            let throughput = data_in_megabytes / 1024. / time.as_secs_f64();
+
             if value.elapsed_exclusive.abs_diff(value.elapsed_inclusive) < 100 {
                 println!(
                     "{prefix}{}[{}] took {time:.2?} ({percentage:.4}%)",
@@ -138,6 +146,10 @@ impl GlobalProfilerWrapper {
                     value.identifier,
                     value.hit_count
                 );
+            }
+
+            if data_in_megabytes > 0. {
+                println!("{prefix}=> Processed {data_in_megabytes:.2} MB at {throughput:.2} Gb/s");
             }
         }
 
@@ -238,6 +250,11 @@ impl ProfilerEntry {
             panic!("Profiler ended but entry didn't finish: {self:?}");
         }
     }
+
+    #[must_use]
+    pub fn processed_byes(&self) -> u64 {
+        self.inner().processed_bytes
+    }
 }
 
 impl ProfilerEntryData {
@@ -252,6 +269,23 @@ impl ProfilerEntryData {
                 parent_index: LAST_INDEX.last().copied(),
                 ancestors: LAST_INDEX.len(),
                 children_elapsed: 0,
+                processed_bytes: 0,
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn init_with_throughput(identifier: &'static str, processed_bytes: impl Into<u64>) -> Self {
+        unsafe {
+            Self {
+                identifier,
+                start: read_cpu_timer(),
+                end: None,
+                index: 0,
+                parent_index: LAST_INDEX.last().copied(),
+                ancestors: LAST_INDEX.len(),
+                children_elapsed: 0,
+                processed_bytes: processed_bytes.into(),
             }
         }
     }

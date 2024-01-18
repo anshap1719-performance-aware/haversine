@@ -42,8 +42,8 @@ where
     }
 
     #[must_use]
-    pub fn from_bytes(input: &'static [u8]) -> JsonTokenizer<Cursor<&'static [u8]>> {
-        let json_reader = JsonReader::<Cursor<&'static [u8]>>::from_bytes(input);
+    pub fn from_bytes<'a>(input: &'a [u8]) -> JsonTokenizer<Cursor<&'a [u8]>> {
+        let json_reader = JsonReader::<Cursor<&'a [u8]>>::from_bytes(input);
 
         JsonTokenizer {
             iterator: json_reader.peekable(),

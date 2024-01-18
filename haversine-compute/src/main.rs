@@ -8,6 +8,7 @@ use json_parser::value::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
+use std::mem::size_of;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -16,9 +17,26 @@ pub struct HaversineCompute {
     answers: Option<String>,
 }
 
+#[cfg_attr(
+    feature = "profile",
+    instrument(data_expression = "file.metadata().ok().map_or(0, |file| file.len())")
+)]
+fn read_json_file(mut file: File) -> Vec<u8> {
+    let mut container = Vec::with_capacity(
+        file.metadata()
+            .ok()
+            .map_or(0, |file| usize::try_from(file.len()).unwrap()),
+    );
+
+    file.read_to_end(&mut container).unwrap();
+
+    container
+}
+
 #[cfg_attr(feature = "profile", instrument)]
 fn parse_haversine_pairs(file: File) -> Vec<Value> {
-    let json_value = JsonParser::parse(file).unwrap();
+    let json_data = read_json_file(file);
+    let json_value = JsonParser::parse_from_bytes(&json_data).unwrap();
 
     instrument_block!("Lookup & Convert", {
         let points: &HashMap<String, Value> = (&json_value).try_into().unwrap();
@@ -51,23 +69,27 @@ fn main() {
 
     let mut sum = 0.;
 
-    instrument_block!("sum_pairs", {
-        for (index, point) in pairs.iter().enumerate() {
-            if let Value::Object(object) = point {
-                let x0: f64 = object.get("x0").unwrap().try_into().unwrap();
-                let x1: f64 = object.get("x1").unwrap().try_into().unwrap();
-                let y0: f64 = object.get("y0").unwrap().try_into().unwrap();
-                let y1: f64 = object.get("y1").unwrap().try_into().unwrap();
+    instrument_block!(
+        "sum_pairs",
+        {
+            for (index, point) in pairs.iter().enumerate() {
+                if let Value::Object(object) = point {
+                    let x0: f64 = object.get("x0").unwrap().try_into().unwrap();
+                    let x1: f64 = object.get("x1").unwrap().try_into().unwrap();
+                    let y0: f64 = object.get("y0").unwrap().try_into().unwrap();
+                    let y1: f64 = object.get("y1").unwrap().try_into().unwrap();
 
-                let result = compute_haversine(Point { x0, y0, x1, y1 }, 6372.8);
-                sum += result;
+                    let result = compute_haversine(Point { x0, y0, x1, y1 }, 6372.8);
+                    sum += result;
 
-                if let Some(answer) = answers.get(index) {
-                    assert_float_absolute_eq!(*answer, result, f64::EPSILON);
+                    if let Some(answer) = answers.get(index) {
+                        assert_float_absolute_eq!(*answer, result, f64::EPSILON);
+                    }
                 }
             }
-        }
-    });
+        },
+        (pairs.len() * size_of::<Value>()) as u64
+    );
 
     println!("Average distance: {}", sum / pairs.len() as f64);
 }

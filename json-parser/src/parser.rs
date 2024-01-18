@@ -113,7 +113,7 @@ impl JsonParser {
     ///
     /// ```
     #[cfg_attr(feature = "profile", instrument)]
-    pub fn parse_from_bytes(input: &'static [u8]) -> Result<Value, ()> {
+    pub fn parse_from_bytes<'a>(input: &'a [u8]) -> Result<Value, ()> {
         let mut json_tokenizer = JsonTokenizer::<BufReader<Cursor<&[u8]>>>::from_bytes(input);
         let tokens = json_tokenizer.tokenize_json()?;
 
