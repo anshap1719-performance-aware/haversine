@@ -1,6 +1,5 @@
-use crate::cpu_timer::{estimate_cpu_frequency, read_cpu_timer};
+use crate::cpu_timer::read_cpu_timer;
 use std::collections::HashMap;
-use std::time::Duration;
 
 pub struct GlobalProfiler {
     start: u64,
@@ -85,8 +84,6 @@ impl GlobalProfilerWrapper {
         let total = end - start;
         let ratio = 100.0 / total as f64;
 
-        let cpu_frequency = estimate_cpu_frequency();
-
         let mut child_map = HashMap::<&str, ProfilerMetricEntry>::new();
         let mut insert_index = 0;
 
@@ -125,42 +122,40 @@ impl GlobalProfilerWrapper {
             let tab = "\t";
             let prefix = tab.repeat(value.ancestors_count);
 
-            let time =
-                Duration::from_secs_f64(value.elapsed_inclusive as f64 / cpu_frequency as f64);
-
+            let run_time = RunTime::new(value.elapsed_inclusive);
             let percentage = ratio * value.elapsed_exclusive as f64;
-
-            let data_in_megabytes = (value.processed_bytes as f64) / 1024. / 1024.;
-            let throughput = data_in_megabytes / 1024. / time.as_secs_f64();
 
             if value.elapsed_exclusive.abs_diff(value.elapsed_inclusive) < 100 {
                 println!(
-                    "{prefix}{}[{}] took {time:.2?} ({percentage:.4}%)",
+                    "{prefix}{}[{}] took {run_time} ({percentage:.4}%)",
                     value.identifier, value.hit_count
                 );
             } else {
                 let percentage_with_children = ratio * value.elapsed_inclusive as f64;
 
                 println!(
-                    "{prefix}{}[{}] took {time:.2?} ({percentage:.4}% | {percentage_with_children:.4}% w/ children)",
+                    "{prefix}{}[{}] took {run_time} ({percentage:.4}% | {percentage_with_children:.4}% w/ children)",
                     value.identifier,
                     value.hit_count
                 );
             }
 
-            if data_in_megabytes > 0. {
-                println!("{prefix}=> Processed {data_in_megabytes:.2} MB at {throughput:.2} Gb/s");
+            let throughput = Throughput::new(value.processed_bytes, run_time);
+
+            if throughput.data_processed() > 0. {
+                println!(
+                    "{prefix}=> Processed {:.2} MB at {throughput}",
+                    throughput.data_processed()
+                );
             }
         }
 
-        let program_runtime = Duration::from_secs_f64((end - start) as f64 / cpu_frequency as f64);
-        println!(
-            "program took {program_runtime:.2?} ({} cycles)",
-            end - start
-        );
+        let program_runtime = RunTime::new(end - start);
+        println!("program took {program_runtime} ({} cycles)", end - start);
     }
 }
 
+use crate::stats::{RunTime, Throughput};
 use ProfilerEntry::*;
 
 impl ProfilerEntry {
