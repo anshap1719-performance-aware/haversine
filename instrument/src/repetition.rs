@@ -1,4 +1,5 @@
 use crate::cpu_timer::read_cpu_timer;
+use crate::page_faults::{get_absolute_page_faults_count, get_page_size};
 use crate::stats::{RunTime, Throughput};
 use crossterm::terminal::ClearType;
 use crossterm::{cursor, terminal, QueueableCommand};
@@ -18,6 +19,7 @@ struct TestResult {
     total_time: u64,
     max_time: u64,
     min_time: u64,
+    page_faults: u64,
 }
 
 impl Default for TestResult {
@@ -27,6 +29,7 @@ impl Default for TestResult {
             total_time: 0,
             max_time: 0,
             min_time: u64::MAX,
+            page_faults: 0,
         }
     }
 }
@@ -38,8 +41,9 @@ pub struct RepetitionTester {
     tests_started_at: u64,
     open_block_count: u64,
     closed_block_count: u64,
-    time_accumulated_this_test: u64,
+    time_accumulated_this_test: i128,
     bytes_accumulated_this_test: u64,
+    faults_accumulated_this_test: i128,
     state: TestState,
     results: TestResult,
 }
@@ -60,6 +64,7 @@ impl RepetitionTester {
             closed_block_count: 0,
             time_accumulated_this_test: 0,
             bytes_accumulated_this_test: 0,
+            faults_accumulated_this_test: 0,
             state: TestState::Testing,
             results: TestResult::default(),
         }
@@ -86,12 +91,18 @@ impl RepetitionTester {
 
     pub fn begin(&mut self) {
         self.open_block_count += 1;
-        self.time_accumulated_this_test -= read_cpu_timer();
+        self.time_accumulated_this_test -= i128::from(read_cpu_timer());
+
+        let page_faults = get_absolute_page_faults_count().unwrap();
+        self.faults_accumulated_this_test -= i128::from(page_faults);
     }
 
     pub fn end(&mut self) {
         self.closed_block_count += 1;
-        self.time_accumulated_this_test += read_cpu_timer();
+        self.time_accumulated_this_test += i128::from(read_cpu_timer());
+
+        let page_faults = get_absolute_page_faults_count().unwrap();
+        self.faults_accumulated_this_test += i128::from(page_faults);
     }
 
     pub fn count_bytes(&mut self, bytes: u64) {
@@ -123,8 +134,15 @@ impl RepetitionTester {
             }
 
             if self.state == TestState::Testing {
-                let elapsed = self.time_accumulated_this_test;
                 let results = &mut self.results;
+
+                // first iteration
+                if self.open_block_count == 1 {
+                    results.page_faults = u64::try_from(self.faults_accumulated_this_test).unwrap();
+                }
+
+                let elapsed =
+                    u64::try_from(self.time_accumulated_this_test).expect("Negative time spent");
                 results.test_count += 1;
                 results.total_time += elapsed;
                 results.max_time = results.max_time.max(elapsed);
@@ -153,6 +171,7 @@ impl RepetitionTester {
         self.closed_block_count = 0;
         self.time_accumulated_this_test = 0;
         self.bytes_accumulated_this_test = 0;
+        self.faults_accumulated_this_test = 0;
     }
 
     fn print_new_stats(&self) {
@@ -162,8 +181,10 @@ impl RepetitionTester {
             RunTime::with_timer_frequency(self.results.min_time, self.cpu_timer_frequency);
         let throughput = Throughput::new(self.bytes_accumulated_this_test, run_time);
 
-        stdout.queue(terminal::Clear(ClearType::All)).unwrap();
-        stdout.queue(cursor::MoveTo(0, 0)).unwrap();
+        stdout
+            .queue(terminal::Clear(ClearType::CurrentLine))
+            .unwrap();
+        stdout.queue(cursor::MoveToColumn(0)).unwrap();
         stdout.queue(cursor::SavePosition).unwrap();
         stdout
             .write_all(format!("Min: Took {run_time} at {throughput}").as_bytes())
@@ -173,7 +194,7 @@ impl RepetitionTester {
 
         stdout.queue(cursor::RestorePosition).unwrap();
         stdout
-            .queue(terminal::Clear(terminal::ClearType::FromCursorDown))
+            .queue(terminal::Clear(ClearType::FromCursorDown))
             .unwrap();
     }
 
@@ -190,9 +211,14 @@ impl RepetitionTester {
         let max_throughput = Throughput::new(self.target_byte_count, min_run_time);
         let min_throughput = Throughput::new(self.target_byte_count, max_run_time);
         let average_throughput = Throughput::new(self.target_byte_count, average_run_time);
+        let page_faults = self.results.page_faults;
+        let page_size = get_page_size();
+
+        let page_fault_memory = (page_size * page_faults) as f64 / 1024. / 1024.;
 
         println!("Min: {min_run_time} at {max_throughput}");
         println!("Max: {max_run_time} at {min_throughput}");
         println!("Avg: {average_run_time} at {average_throughput}");
+        println!("Page faults: {page_faults} ({page_fault_memory:.2}MB)");
     }
 }
