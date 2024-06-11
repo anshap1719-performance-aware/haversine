@@ -14,12 +14,12 @@ enum TestState {
     Completed,
 }
 
-struct TestResult {
-    test_count: u64,
-    total_time: u64,
-    max_time: u64,
-    min_time: u64,
-    page_faults: u64,
+pub struct TestResult {
+    pub test_count: u64,
+    pub total_time: u64,
+    pub max_time: u64,
+    pub min_time: u64,
+    pub page_faults: u64,
 }
 
 impl Default for TestResult {
@@ -220,5 +220,10 @@ impl RepetitionTester {
         println!("Max: {max_run_time} at {min_throughput}");
         println!("Avg: {average_run_time} at {average_throughput}");
         println!("Page faults: {page_faults} ({page_fault_memory:.2}MB)");
+    }
+
+    #[must_use]
+    pub fn results(&self) -> &TestResult {
+        &self.results
     }
 }

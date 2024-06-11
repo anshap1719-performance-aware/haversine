@@ -36,3 +36,11 @@ missing_errors_doc = { level = "allow", priority = 1 }
 missing_panics_doc = { level = "allow", priority = 1 }
 should_panic_without_expect = { level = "allow", priority = 1 }
 cast_precision_loss = { level = "allow", priority = 1 }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+debug = false
+strip = true
